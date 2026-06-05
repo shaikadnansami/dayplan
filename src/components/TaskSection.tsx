@@ -1,7 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import { Task, DayData } from "@/lib/types";
-import { Plus, X } from "lucide-react";
+import { Plus, X, Trash2, AlertTriangle } from "lucide-react";
 
 interface Props {
   dayData: DayData;
@@ -43,7 +44,79 @@ function SquareCheck({
   );
 }
 
+/* ── Confirmation modal ───────────────────────────────── */
+function DeleteConfirmModal({
+  taskText,
+  onConfirm,
+  onCancel,
+}: {
+  taskText: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    /* Backdrop */
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm px-4"
+      onClick={onCancel}
+    >
+      {/* Card — stop click bubbling to backdrop */}
+      <div
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Icon */}
+        <div className="flex justify-center mb-4">
+          <div className="w-14 h-14 bg-red-100 rounded-2xl flex items-center justify-center">
+            <Trash2 className="w-6 h-6 text-red-500" />
+          </div>
+        </div>
+
+        {/* Title */}
+        <h3 className="text-base font-bold text-slate-800 text-center mb-2">
+          Delete this task?
+        </h3>
+
+        {/* Task preview */}
+        <p className="text-sm text-slate-500 text-center mb-1">
+          You are about to delete:
+        </p>
+        <div className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 mb-5 mx-2">
+          <p className="text-sm text-slate-700 text-center font-medium truncate">
+            {taskText || "Untitled task"}
+          </p>
+        </div>
+
+        {/* Warning note */}
+        <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 mb-5">
+          <AlertTriangle className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
+          <p className="text-xs text-amber-600">This action cannot be undone.</p>
+        </div>
+
+        {/* Buttons */}
+        <div className="flex gap-3">
+          <button
+            onClick={onCancel}
+            className="flex-1 border-2 border-slate-200 rounded-xl py-3 text-sm font-semibold text-slate-600 hover:bg-slate-50 active:bg-slate-100 touch-manipulation"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            className="flex-1 bg-red-500 hover:bg-red-600 active:bg-red-700 rounded-xl py-3 text-sm font-semibold text-white touch-manipulation"
+          >
+            Yes, Delete
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Main component ───────────────────────────────────── */
 export default function TaskSection({ dayData, isCurrentDay, onUpdateTasks }: Props) {
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+
   const addTask = () => {
     const newTask: Task = {
       id: `${Date.now()}-${Math.random()}`,
@@ -62,7 +135,6 @@ export default function TaskSection({ dayData, isCurrentDay, onUpdateTasks }: Pr
     onUpdateTasks(dayData.tasks.filter((t) => t.id !== id));
   };
 
-  /* Marking complete clears partial; marking partial clears complete */
   const toggleCompleted = (task: Task) => {
     updateTask(task.id, { completed: !task.completed, partial: false });
   };
@@ -71,91 +143,108 @@ export default function TaskSection({ dayData, isCurrentDay, onUpdateTasks }: Pr
     updateTask(task.id, { partial: !task.partial, completed: false });
   };
 
+  const pendingTask = dayData.tasks.find((t) => t.id === pendingDeleteId);
+
   return (
-    <div className="flex flex-col gap-0.5 w-full">
-      {/* Empty state */}
-      {dayData.tasks.length === 0 && (
-        <div className="py-10 flex flex-col items-center gap-3">
-          <div className="w-12 h-12 bg-slate-100 rounded-2xl flex items-center justify-center">
-            <Plus className="w-5 h-5 text-slate-400" />
+    <>
+      <div className="flex flex-col gap-0.5 w-full">
+        {/* Empty state */}
+        {dayData.tasks.length === 0 && (
+          <div className="py-10 flex flex-col items-center gap-3">
+            <div className="w-12 h-12 bg-slate-100 rounded-2xl flex items-center justify-center">
+              <Plus className="w-5 h-5 text-slate-400" />
+            </div>
+            <p className="text-slate-400 text-sm text-center">
+              {isCurrentDay
+                ? 'No tasks yet — click "+ Add Task" below to start'
+                : "No tasks were added for this day."}
+            </p>
           </div>
-          <p className="text-slate-400 text-sm text-center">
-            {isCurrentDay
-              ? 'No tasks yet — click "+ Add Task" below to start'
-              : "No tasks were added for this day."}
-          </p>
-        </div>
-      )}
+        )}
 
-      {/* Task rows */}
-      {dayData.tasks.map((task) => (
-        <div
-          key={task.id}
-          className="flex items-center gap-3 py-2.5 px-2 group rounded-xl hover:bg-slate-50"
-        >
-          {/* Complete checkbox (left) */}
-          <SquareCheck
-            checked={task.completed}
-            onClick={() => toggleCompleted(task)}
-            disabled={!isCurrentDay}
-          />
-
-          {/* Task text */}
-          <input
-            type="text"
-            value={task.text}
-            onChange={(e) => updateTask(task.id, { text: e.target.value })}
-            placeholder={isCurrentDay ? "Enter task..." : "—"}
-            readOnly={!isCurrentDay}
-            className={`flex-1 min-w-0 bg-transparent outline-none text-sm leading-relaxed ${
-              task.completed
-                ? "line-through text-slate-400"
-                : task.partial
-                ? "text-orange-600"
-                : "text-slate-700 placeholder-slate-300"
-            } ${!isCurrentDay ? "cursor-default" : ""}`}
-          />
-
-          {/* Partial label + checkbox (right) */}
-          <div className="flex items-center gap-1.5 flex-shrink-0">
-            <span
-              className={`text-xs font-medium ${
-                task.partial ? "text-orange-500" : "text-slate-400"
-              }`}
-            >
-              Partial
-            </span>
+        {/* Task rows */}
+        {dayData.tasks.map((task) => (
+          <div
+            key={task.id}
+            className="flex items-center gap-3 py-2.5 px-2 group rounded-xl hover:bg-slate-50"
+          >
+            {/* Complete checkbox */}
             <SquareCheck
-              checked={task.partial}
-              onClick={() => togglePartial(task)}
+              checked={task.completed}
+              onClick={() => toggleCompleted(task)}
               disabled={!isCurrentDay}
             />
-          </div>
 
-          {/* Delete — always visible on mobile, hover-only on desktop */}
-          {isCurrentDay && (
-            <button
-              onClick={() => removeTask(task.id)}
-              className="lg:opacity-0 lg:group-hover:opacity-100 text-slate-300 hover:text-red-400 active:text-red-500 flex-shrink-0 ml-1 p-1 -m-1 touch-manipulation"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          )}
-        </div>
-      ))}
+            {/* Task text */}
+            <input
+              type="text"
+              value={task.text}
+              onChange={(e) => updateTask(task.id, { text: e.target.value })}
+              placeholder={isCurrentDay ? "Enter task..." : "—"}
+              readOnly={!isCurrentDay}
+              className={`flex-1 min-w-0 bg-transparent outline-none text-sm leading-relaxed ${
+                task.completed
+                  ? "line-through text-slate-400"
+                  : task.partial
+                  ? "text-orange-600"
+                  : "text-slate-700 placeholder-slate-300"
+              } ${!isCurrentDay ? "cursor-default" : ""}`}
+            />
 
-      {/* Add Task — today only */}
-      {isCurrentDay && (
-        <button
-          onClick={addTask}
-          className="mt-5 flex items-center gap-2 text-blue-500 hover:text-blue-600 text-sm font-medium py-2 px-2 rounded-xl hover:bg-blue-50 w-fit"
-        >
-          <div className="w-6 h-6 rounded-lg border-2 border-blue-400 flex items-center justify-center">
-            <Plus className="w-3.5 h-3.5" />
+            {/* Partial label + checkbox */}
+            <div className="flex items-center gap-1.5 flex-shrink-0">
+              <span
+                className={`text-xs font-medium ${
+                  task.partial ? "text-orange-500" : "text-slate-400"
+                }`}
+              >
+                Partial
+              </span>
+              <SquareCheck
+                checked={task.partial}
+                onClick={() => togglePartial(task)}
+                disabled={!isCurrentDay}
+              />
+            </div>
+
+            {/* Delete — opens confirmation modal */}
+            {isCurrentDay && (
+              <button
+                onClick={() => setPendingDeleteId(task.id)}
+                className="lg:opacity-0 lg:group-hover:opacity-100 text-slate-300 hover:text-red-400 active:text-red-500 flex-shrink-0 ml-1 p-1 -m-1 touch-manipulation"
+                aria-label="Delete task"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
           </div>
-          Add Task
-        </button>
+        ))}
+
+        {/* Add Task */}
+        {isCurrentDay && (
+          <button
+            onClick={addTask}
+            className="mt-5 flex items-center gap-2 text-blue-500 hover:text-blue-600 text-sm font-medium py-2 px-2 rounded-xl hover:bg-blue-50 w-fit"
+          >
+            <div className="w-6 h-6 rounded-lg border-2 border-blue-400 flex items-center justify-center">
+              <Plus className="w-3.5 h-3.5" />
+            </div>
+            Add Task
+          </button>
+        )}
+      </div>
+
+      {/* Confirmation modal — rendered outside the list so it's always on top */}
+      {pendingTask && (
+        <DeleteConfirmModal
+          taskText={pendingTask.text}
+          onConfirm={() => {
+            removeTask(pendingTask.id);
+            setPendingDeleteId(null);
+          }}
+          onCancel={() => setPendingDeleteId(null)}
+        />
       )}
-    </div>
+    </>
   );
 }
