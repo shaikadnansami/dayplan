@@ -132,13 +132,13 @@ export default function TaskSection({ dayData, isCurrentDay, onUpdateTasks }: Pr
             />
           </div>
 
-          {/* Delete on hover — today only */}
+          {/* Delete — always visible on mobile, hover-only on desktop */}
           {isCurrentDay && (
             <button
               onClick={() => removeTask(task.id)}
-              className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-400 flex-shrink-0 ml-1"
+              className="lg:opacity-0 lg:group-hover:opacity-100 text-slate-300 hover:text-red-400 active:text-red-500 flex-shrink-0 ml-1 p-1 -m-1 touch-manipulation"
             >
-              <X className="w-3.5 h-3.5" />
+              <X className="w-4 h-4" />
             </button>
           )}
         </div>
