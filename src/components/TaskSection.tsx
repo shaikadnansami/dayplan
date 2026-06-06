@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState } from "react";
 import { Task, DayData } from "@/lib/types";
 import { Plus, X, Trash2, AlertTriangle } from "lucide-react";
 
@@ -44,40 +44,47 @@ function SquareCheck({
   );
 }
 
-/* ── Auto-growing task field: wraps long text and grows down     *
- * instead of scrolling sideways; scrolls vertically past a cap ── */
+/* ── Auto-growing task field ───────────────────────────────────
+ * Wraps long text and grows downward instead of scrolling sideways,
+ * with a vertical scrollbar past a height cap. Sized via a CSS grid
+ * "ghost twin" (an invisible div mirroring the text) rather than
+ * measuring scrollHeight in JS — that approach is unreliable on
+ * mobile (hidden tabs / font-load timing can report 0 and clip the
+ * text invisibly), while the grid technique needs no measurement. */
 function TaskTextArea({
   value,
   onChange,
   placeholder,
   readOnly,
-  className,
+  fieldClassName,
 }: {
   value: string;
   onChange: (value: string) => void;
   placeholder: string;
   readOnly: boolean;
-  className: string;
+  /** Typography/color/cursor classes — applied to both the field and its sizing twin so they measure identically */
+  fieldClassName: string;
 }) {
-  const ref = useRef<HTMLTextAreaElement | null>(null);
-
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    el.style.height = "auto";
-    el.style.height = `${el.scrollHeight}px`;
-  }, [value]);
+  const shared = `text-sm leading-relaxed pt-1 max-h-40 ${fieldClassName}`;
 
   return (
-    <textarea
-      ref={ref}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      placeholder={placeholder}
-      readOnly={readOnly}
-      rows={1}
-      className={`resize-none overflow-y-auto max-h-40 leading-relaxed ${className}`}
-    />
+    <div className="grid flex-1 min-w-0">
+      {/* Invisible twin — its wrapped height drives the grid row's height */}
+      <div
+        aria-hidden="true"
+        className={`[grid-area:1/1] invisible whitespace-pre-wrap break-words overflow-hidden ${shared}`}
+      >
+        {`${value || placeholder} `}
+      </div>
+      <textarea
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        readOnly={readOnly}
+        rows={1}
+        className={`[grid-area:1/1] w-full resize-none overflow-y-auto bg-transparent outline-none ${shared}`}
+      />
+    </div>
   );
 }
 
@@ -220,13 +227,13 @@ export default function TaskSection({ dayData, isEditable, onUpdateTasks }: Prop
               onChange={(text) => updateTask(task.id, { text })}
               placeholder={isEditable ? "Enter task..." : "—"}
               readOnly={!isEditable}
-              className={`flex-1 min-w-0 bg-transparent outline-none text-sm pt-1 ${
+              fieldClassName={`${
                 task.completed
                   ? "line-through text-slate-400"
                   : task.partial
                   ? "text-orange-600"
                   : "text-slate-700 placeholder-slate-300"
-              } ${!isEditable ? "cursor-default" : ""}`}
+              } ${!isEditable ? "cursor-default" : "cursor-text"}`}
             />
 
             {/* Partial label + checkbox */}
