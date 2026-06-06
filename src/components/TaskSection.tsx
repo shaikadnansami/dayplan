@@ -1,12 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Task, DayData } from "@/lib/types";
 import { Plus, X, Trash2, AlertTriangle } from "lucide-react";
 
 interface Props {
   dayData: DayData;
-  isCurrentDay: boolean;
+  isEditable: boolean;
   onUpdateTasks: (tasks: Task[]) => void;
 }
 
@@ -41,6 +41,43 @@ function SquareCheck({
         </svg>
       )}
     </button>
+  );
+}
+
+/* ── Auto-growing task field: wraps long text and grows down     *
+ * instead of scrolling sideways; scrolls vertically past a cap ── */
+function TaskTextArea({
+  value,
+  onChange,
+  placeholder,
+  readOnly,
+  className,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  placeholder: string;
+  readOnly: boolean;
+  className: string;
+}) {
+  const ref = useRef<HTMLTextAreaElement | null>(null);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  }, [value]);
+
+  return (
+    <textarea
+      ref={ref}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder={placeholder}
+      readOnly={readOnly}
+      rows={1}
+      className={`resize-none overflow-y-auto max-h-40 leading-relaxed ${className}`}
+    />
   );
 }
 
@@ -114,7 +151,7 @@ function DeleteConfirmModal({
 }
 
 /* ── Main component ───────────────────────────────────── */
-export default function TaskSection({ dayData, isCurrentDay, onUpdateTasks }: Props) {
+export default function TaskSection({ dayData, isEditable, onUpdateTasks }: Props) {
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
 
   const addTask = () => {
@@ -155,7 +192,7 @@ export default function TaskSection({ dayData, isCurrentDay, onUpdateTasks }: Pr
               <Plus className="w-5 h-5 text-slate-400" />
             </div>
             <p className="text-slate-400 text-sm text-center">
-              {isCurrentDay
+              {isEditable
                 ? 'No tasks yet — click "+ Add Task" below to start'
                 : "No tasks were added for this day."}
             </p>
@@ -166,33 +203,34 @@ export default function TaskSection({ dayData, isCurrentDay, onUpdateTasks }: Pr
         {dayData.tasks.map((task) => (
           <div
             key={task.id}
-            className="flex items-center gap-3 py-2.5 px-2 group rounded-xl hover:bg-slate-50"
+            className="flex items-start gap-3 py-2.5 px-2 group rounded-xl hover:bg-slate-50"
           >
             {/* Complete checkbox */}
-            <SquareCheck
-              checked={task.completed}
-              onClick={() => toggleCompleted(task)}
-              disabled={!isCurrentDay}
-            />
+            <div className="pt-0.5">
+              <SquareCheck
+                checked={task.completed}
+                onClick={() => toggleCompleted(task)}
+                disabled={!isEditable}
+              />
+            </div>
 
-            {/* Task text */}
-            <input
-              type="text"
+            {/* Task text — wraps and grows down, scrolls vertically past max height */}
+            <TaskTextArea
               value={task.text}
-              onChange={(e) => updateTask(task.id, { text: e.target.value })}
-              placeholder={isCurrentDay ? "Enter task..." : "—"}
-              readOnly={!isCurrentDay}
-              className={`flex-1 min-w-0 bg-transparent outline-none text-sm leading-relaxed ${
+              onChange={(text) => updateTask(task.id, { text })}
+              placeholder={isEditable ? "Enter task..." : "—"}
+              readOnly={!isEditable}
+              className={`flex-1 min-w-0 bg-transparent outline-none text-sm pt-1 ${
                 task.completed
                   ? "line-through text-slate-400"
                   : task.partial
                   ? "text-orange-600"
                   : "text-slate-700 placeholder-slate-300"
-              } ${!isCurrentDay ? "cursor-default" : ""}`}
+              } ${!isEditable ? "cursor-default" : ""}`}
             />
 
             {/* Partial label + checkbox */}
-            <div className="flex items-center gap-1.5 flex-shrink-0">
+            <div className="flex items-center gap-1.5 flex-shrink-0 pt-0.5">
               <span
                 className={`text-xs font-medium ${
                   task.partial ? "text-orange-500" : "text-slate-400"
@@ -203,15 +241,15 @@ export default function TaskSection({ dayData, isCurrentDay, onUpdateTasks }: Pr
               <SquareCheck
                 checked={task.partial}
                 onClick={() => togglePartial(task)}
-                disabled={!isCurrentDay}
+                disabled={!isEditable}
               />
             </div>
 
             {/* Delete — opens confirmation modal */}
-            {isCurrentDay && (
+            {isEditable && (
               <button
                 onClick={() => setPendingDeleteId(task.id)}
-                className="lg:opacity-0 lg:group-hover:opacity-100 text-slate-300 hover:text-red-400 active:text-red-500 flex-shrink-0 ml-1 p-1 -m-1 touch-manipulation"
+                className="lg:opacity-0 lg:group-hover:opacity-100 text-slate-300 hover:text-red-400 active:text-red-500 flex-shrink-0 ml-1 p-1 -m-1 mt-1 touch-manipulation"
                 aria-label="Delete task"
               >
                 <X className="w-4 h-4" />
@@ -221,7 +259,7 @@ export default function TaskSection({ dayData, isCurrentDay, onUpdateTasks }: Pr
         ))}
 
         {/* Add Task */}
-        {isCurrentDay && (
+        {isEditable && (
           <button
             onClick={addTask}
             className="mt-5 flex items-center gap-2 text-blue-500 hover:text-blue-600 text-sm font-medium py-2 px-2 rounded-xl hover:bg-blue-50 w-fit"

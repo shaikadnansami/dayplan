@@ -13,7 +13,10 @@ export default function Home() {
     const saved = localStorage.getItem("dayplan-v1");
     if (saved) {
       try {
-        setPlan(JSON.parse(saved));
+        const parsed = JSON.parse(saved) as Plan;
+        /* Migration: older saved plans may not have a notes array */
+        if (!parsed.notes) parsed.notes = [];
+        setPlan(parsed);
       } catch {
         localStorage.removeItem("dayplan-v1");
       }
@@ -37,7 +40,7 @@ export default function Home() {
       };
     });
 
-    const newPlan: Plan = { startDate, endDate, totalDays, days };
+    const newPlan: Plan = { startDate, endDate, totalDays, days, notes: [] };
     localStorage.setItem("dayplan-v1", JSON.stringify(newPlan));
     setPlan(newPlan);
   };

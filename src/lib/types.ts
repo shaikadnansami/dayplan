@@ -11,6 +11,14 @@ export interface DayData {
   dayNumber: number;
   date: string;
   tasks: Task[];
+  /** When true on day N, day N+1's task list becomes editable ahead of time */
+  planNextDay?: boolean;
+}
+
+export interface PlanNote {
+  id: string;
+  date: string;
+  text: string;
 }
 
 export interface Plan {
@@ -18,6 +26,7 @@ export interface Plan {
   endDate: string;
   totalDays: number;
   days: DayData[];
+  notes: PlanNote[];
 }
 
 export function getDayStatus(day: DayData, currentDayNum: number): DayStatus {
@@ -41,6 +50,19 @@ export function getCurrentDayNumber(plan: Plan): number {
   start.setHours(0, 0, 0, 0);
   const diff = Math.floor((today.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
   return Math.min(Math.max(diff + 1, 1), plan.totalDays);
+}
+
+/**
+ * A day's task list is editable when it's today, OR when the previous day
+ * opted in via "planNextDay" to unlock planning ahead of time.
+ */
+export function isDayUnlocked(plan: Plan, dayNumber: number, currentDay: number): boolean {
+  if (dayNumber === currentDay) return true;
+  if (dayNumber === currentDay + 1) {
+    const today = plan.days.find((d) => d.dayNumber === currentDay);
+    return today?.planNextDay === true;
+  }
+  return false;
 }
 
 export function formatDate(dateStr: string): string {
